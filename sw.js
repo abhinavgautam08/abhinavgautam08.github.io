@@ -1,8 +1,7 @@
-const CACHE_NAME = 'portfolio-v2';
+const CACHE_NAME = 'portfolio-v3';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
-    '/style.css',
     '/script.js',
     '/icons-regular.css',
     '/icons-fill.css',
