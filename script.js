@@ -142,19 +142,37 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // -------------------------------------------------------------
-    // SPA Routing (Page change bina refresh ke)
+    // SPA Routing (Page change bina refresh ke) - Path Based
     // -------------------------------------------------------------
     var sections = document.querySelectorAll('.section');
     var navLinks = document.querySelectorAll('.nav-links a, .mobile-menu a');
 
+    // Base path check (agar subfolder me hai to)
+    var BASE_PATH = window.location.pathname.includes('/Portfolio') ? '/Portfolio/' : '/';
+
     function router() {
-        // Hash check kar rahe hain url me (jaise #home)
-        var hash = window.location.hash;
-        if (!hash) {
-            hash = '#home';
-        }
+        // Path check kar rahe hain
+        var path = window.location.pathname;
         
-        var page = hash.substring(1); // # hata diya
+        // Remove trailing slash if present (except root)
+        if (path.length > 1 && path.endsWith('/')) {
+            path = path.slice(0, -1);
+        }
+
+        // Extract page name
+        var page = '';
+        if (path === BASE_PATH || path === BASE_PATH.slice(0, -1)) {
+            page = 'home';
+        } else {
+            // Remove base path to get page
+            var cleanPath = path;
+            if (BASE_PATH !== '/') {
+                cleanPath = path.replace(BASE_PATH, ''); // e.g. "skills"
+            } else {
+                cleanPath = path.substring(1); // e.g. "skills"
+            }
+            page = cleanPath;
+        }
 
         // Pehle sab section ko chupa do
         for (var i = 0; i < sections.length; i++) {
@@ -165,15 +183,19 @@ document.addEventListener('DOMContentLoaded', function() {
         var target = document.getElementById(page);
         if (target) {
             target.classList.add('active');
+            window.scrollTo(0,0);
         } else {
             // Agar kuch nahi mila to home dikhao
             document.getElementById('home').classList.add('active');
+            page = 'home';
         }
 
         // Link ko active color karne ke liye loop
         for (var j = 0; j < navLinks.length; j++) {
             var link = navLinks[j];
-            if (link.getAttribute('href') === '#' + page) {
+            var href = link.getAttribute('href');
+            // Check if link matches page
+            if (href === page || href === './' + page) {
                 link.classList.add('active');
             } else {
                 link.classList.remove('active');
@@ -181,23 +203,67 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Data load karne ke functions call kar rahe hain
-        if (page === 'projects') {
-            loadProjects();
-        }
+        if (page === 'projects') loadProjects();
+        if (page === 'skills') loadSkills();
+        if (page === 'certificate') loadCertificates();
+    }
 
-        if (page === 'certificate') {
-            loadCertificates();
+    // Handle clicks
+    function handleLinkClick(e) {
+        var link = e.target.closest('a');
+        if (!link) return;
+        
+        var href = link.getAttribute('href');
+        // External links ko ignore karo
+        if (href.startsWith('http')) return;
+        
+        e.preventDefault();
+        
+        var page = href;
+        if (page === 'home') page = ''; // Root
+        
+        var newPath = BASE_PATH + page;
+        // Clean double slashes
+        newPath = newPath.replace('//', '/');
+        
+        history.pushState(null, null, newPath);
+        router();
+        
+        // Update nav active state immediately
+        if (isMenuOpen) {
+             isMenuOpen = false;
+             mobileMenu.classList.remove('open');
+             menuIcon.classList.remove('ph-x');
+             menuIcon.classList.add('ph-list');
         }
     }
 
-    window.addEventListener('hashchange', router);
-    window.addEventListener('load', router);
+    // Attach click listeners
+    for (var j = 0; j < navLinks.length; j++) {
+        navLinks[j].addEventListener('click', handleLinkClick);
+    }
+
+    // Handle back/forward button
+    window.addEventListener('popstate', router);
+    
+    // Check for redirect from 404.html
+    var redirect = sessionStorage.getItem('redirect');
+    if (redirect) {
+        sessionStorage.removeItem('redirect');
+        // Only replace state if it's different
+        if (redirect !== window.location.href) {
+            history.replaceState(null, null, redirect);
+        }
+    }
+    
+    // Initial load
+    router();
 
     // -------------------------------------------------------------
     // API se data lane wala code function
     // -------------------------------------------------------------
     var projectsLoaded = false;
-
+    var skillsLoaded = false;
     var certificatesLoaded = false;
 
     function loadProjects() {
@@ -258,7 +324,81 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    function loadSkills() {
+        if (skillsLoaded == true) return;
+        var grid = document.getElementById('skills-grid');
 
+        fetch('https://pwd.abhinavgautam08.workers.dev/api/skills')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.length === 0) {
+                    grid.innerHTML = '<p>No skills found.</p>';
+                    return;
+                }
+
+                // Skills ko category wise alag kar rahe hain simple tareeke se
+                var grouped = {};
+                for (var i = 0; i < data.length; i++) {
+                    var skill = data[i];
+                    var cat = skill.category;
+                    if (!cat) {
+                        cat = 'Other';
+                    }
+                    
+                    if (!grouped[cat]) {
+                        grouped[cat] = [];
+                    }
+                    grouped[cat].push(skill);
+                }
+
+                grid.innerHTML = '';
+                
+                // Object keys ka loop
+                for (var category in grouped) {
+                    var skillsList = grouped[category];
+                    var catDiv = document.createElement('div');
+                    catDiv.className = 'skill-category';
+                    
+                    var iconHtml = getSkillIcon(category);
+                    
+                    var listHtml = '<ul class="skill-list">';
+                    for (var j = 0; j < skillsList.length; j++) {
+                        var s = skillsList[j];
+                        
+                        // Dots bana rahe hain rating ke liye
+                        var dotsHtml = '';
+                        var proficiency = s.proficiency || 0;
+                        var filledCount = Math.floor(proficiency / 20);
+                        
+                        for (var d = 0; d < 5; d++) {
+                            if (d < filledCount) {
+                                dotsHtml += '<span class="skill-dot filled"></span>';
+                            } else {
+                                dotsHtml += '<span class="skill-dot"></span>';
+                            }
+                        }
+
+                        listHtml += 
+                            '<li class="skill-item">' +
+                                '<span style="flex:1; font-weight:500;">' + s.name + '</span>' +
+                                '<div class="skill-level">' + dotsHtml + '</div>' +
+                            '</li>';
+                    }
+                    listHtml += '</ul>';
+
+                    catDiv.innerHTML = 
+                        '<div class="category-title">' + iconHtml + ' ' + category + '</div>' +
+                        listHtml;
+                    
+                    grid.appendChild(catDiv);
+                }
+                skillsLoaded = true;
+            })
+            .catch(function(err) {
+                console.log(err);
+                grid.innerHTML = '<p>Failed to load skills.</p>';
+            });
+    }
 
     function loadCertificates() {
         if (certificatesLoaded == true) return;
@@ -307,7 +447,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Icon select karne ka function if-else se
-
+    function getSkillIcon(name) {
+        var n = name.toLowerCase();
+        var iconClass = 'ph-code';
+        
+        if (n.indexOf('frontend') !== -1) {
+            iconClass = 'ph-desktop';
+        } else if (n.indexOf('backend') !== -1 || n.indexOf('server') !== -1) {
+            iconClass = 'ph-hard-drives';
+        } else if (n.indexOf('db') !== -1 || n.indexOf('data') !== -1) {
+            iconClass = 'ph-database';
+        } else if (n.indexOf('devops') !== -1) {
+            iconClass = 'ph-cloud';
+        } else if (n.indexOf('tools') !== -1) {
+            iconClass = 'ph-wrench';
+        }
+        
+        return '<i class="ph ' + iconClass + '"></i>';
+    }
 
     // Favicon change karne ka code
     var favicon = document.getElementById('dynamic-favicon');

@@ -7,7 +7,8 @@ const ASSETS_TO_CACHE = [
     '/icons-regular.css',
     '/icons-fill.css',
     '/assets/fonts/Phosphor.woff2',
-    '/assets/fonts/Phosphor-Fill.woff2'
+    '/assets/fonts/Phosphor-Fill.woff2',
+    '/404.html'
 ];
 
 // Combine all logging into a single debug flag
