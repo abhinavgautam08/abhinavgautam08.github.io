@@ -1,6 +1,12 @@
-
 // DOMContentLoaded event listener taaki jab page load ho tab code chale
 document.addEventListener('DOMContentLoaded', function() {
+    
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker Registered'))
+            .catch(err => console.log('Service Worker Failed', err));
+    }
     
     // Yahan hum html elements ko select kar rahe hain
     var body = document.body;
